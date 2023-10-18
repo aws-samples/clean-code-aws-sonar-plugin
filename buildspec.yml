@@ -1,0 +1,60 @@
+version: 0.2
+env:
+  secrets-manager:
+    LOGIN: prod/sonar:sonartoken
+    HOST: prod/sonar:HOST
+    ORGANIZATION: prod/sonar:Organization
+    PROJECT: prod/sonar:Project
+  variables:
+    SOURCE_BRANCH: ""
+    DESTINATION_BRANCH: ""
+    PR_KEY: ""
+phases:
+  install:
+    runtime-versions:
+      java: corretto17
+  pre_build:
+    commands:
+      - echo "SOURCE_BRANCH -> ${SOURCE_BRANCH}"
+      - echo "DESTINATION_BRANCH -> ${DESTINATION_BRANCH}"
+      - echo "PR_KEY -> ${PR_KEY}"
+
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Build executable JAR
+      - ./mvnw package -Dmaven.test.skip -Dcheckstyle.skip
+
+      - |-
+        if [[ ${PR_KEY} != "" ]] ; then
+          echo "We are doing a PR analysis on ${SOURCE_BRANCH} into ${DESTINATION_BRANCH} with key ${PR_KEY}"
+          export SQ_ANALYSIS_PARAMS="-Dsonar.pullrequest.key=${PR_KEY} \
+                                      -Dsonar.pullrequest.branch=${SOURCE_BRANCH##refs/heads/} \
+                                      -Dsonar.pullrequest.base=${DESTINATION_BRANCH##refs/heads/}"
+        else
+          if [[ ${SOURCE_BRANCH##refs/heads/} == 'main' ]] ; then
+            echo "We are doing an analysis of the main branch: ${SOURCE_BRANCH}"
+            export SQ_ANALYSIS_PARAMS=""
+          else
+            echo "We are doing a branch analysis  on ${SOURCE_BRANCH}"
+            export SQ_ANALYSIS_PARAMS="-Dsonar.branch.name=${SOURCE_BRANCH##refs/heads/}"
+          fi
+        fi
+
+      - mvn clean install sonar:sonar package -Dmaven.test.skip=true -Dcheckstyle.skip -Dsonar.projectKey=$PROJECT -Dsonar.qualitygate.wait=true -Dsonar.qualitygate.timeout=120 -Dsonar.verbose=true $SQ_ANALYSIS_PARAMS
+
+      
+  post_build:
+    commands:
+      - echo Building the Docker image...          
+      - docker build -t $IMAGE_REPO_NAME:$IMAGE_TAG .
+      - docker tag $IMAGE_REPO_NAME:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG      
+      - echo Build completed on `date`
+      - echo Pushing the Docker image...
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
+artifacts:
+  files:
+    - target/spring-petclinic-3.1.0-SNAPSHOT.jar
+  discard-paths: yes
