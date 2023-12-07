@@ -2,8 +2,8 @@
 
 This CloudFormation template simplifies the integration of SonarQube or SonarCloud with AWS CodeBuild and AWS CodePipeline.
 
-In the spirit of "shift-left" we want to run code analysis as early as possible in the development workflow. This entails triggering Sonar code analysis not only on AWS CodePipeline builds of the `main` branch but also when Pull Requests are created or updated (typically after a round of reviews).
-For this purpose, this plugin leverages [Amazon EventBridge](https://aws.amazon.com/eventbridge/). When you deploy the CloudFormation stack, an EventBridge rule will be deployed to your account that listens for Pull Requests (PR) of a certain AWS CodeCommit repository. Once a PR is created or updated, it triggers your AWS CodeBuild build job which starts a [Sonar Pull Request Analysis](https://docs.sonarcloud.io/improving/pull-request-analysis/).
+In the spirit of "shift-left" we want to run code analysis as early as possible in the development workflow. This entails triggering Sonar code analysis not only on AWS CodePipeline builds of the `main` branch but also when Pull Requests (PR) are created or updated (typically after a round of reviews).
+For this purpose, this plugin leverages [Amazon EventBridge](https://aws.amazon.com/eventbridge/). When you deploy the CloudFormation stack, an EventBridge rule will be deployed to your account that listens for Pull Requests (PR) of a predefined AWS CodeCommit repository. Once a PR is created or updated, it triggers your AWS CodeBuild build job which starts a [Sonar Pull Request Analysis](https://docs.sonarcloud.io/improving/pull-request-analysis/).
 
 ![Overview diagram](./Sonar-CodeBuild-MultiBranchPRFlow.png)
 
@@ -23,16 +23,18 @@ You will need to provide the `CodeCommitRepositoryARN` - the EventBridg rule wil
 #### Environment variables used in the build process
 The EventBridge rule will trigger the provided CodeBuild project, overriding the following environment variables:
 
-`SOURCE_BRANCH`: The name of the branch the PR was created from.
-`DESTINATION_BRANCH`: The name of the branch the PR wants to be merged into.
-`PR_KEY`: A unique identifier for this PR
+`SOURCE_BRANCH`: The name of the branch the PR was created from. <br>
+`DESTINATION_BRANCH`: The name of the branch the PR wants to be merged into. <br>
+`PR_KEY`: A unique identifier for this PR <br>
 
 Make sure you use all 3 values to invoke Sonar.
 
-Check out this sample [`buildspec.yaml`](./buildspec.yml) for a Java project to understand how Sonar is invoked using certain environment variables.
+Check out this sample [`buildspec.yaml`](./buildspec.yml#L46) for a Java project to understand how Sonar is invoked from AWS CodeBuild.
 
-#### Step-by-step instructions
-For step-by-step instructions, how retrieve the `Arn` values of your AWS CodeCommit and AWS CodeBuild projects, and how to deploy the CloudFormation template check [this page](https://catalog.workshops.aws/clean-code/en-US/cicd-pipeline/aws-sonar-plugin#deploy-cloudformation-template).
+#### Step-by-step instructions - Clean Code Workshop
+For step-by-step instructions, on how retrieve the `Arn` values of your AWS CodeCommit and AWS CodeBuild projects, and how to deploy the CloudFormation template check [this page](https://catalog.workshops.aws/clean-code/en-US/cicd-pipeline/aws-sonar-plugin#deploy-cloudformation-template).
+
+If you're interested in step-by-step instructions for a complete CI/CD pipeline on AWS, using AWS CodePipeline, AWS Codebuild and Sonar, then check out the [Clean Code with Sonar on AWS workshop](https://catalog.workshops.aws/clean-code/en-US).
 
 
 ## Cost
